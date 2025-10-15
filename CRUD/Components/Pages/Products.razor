@@ -1,0 +1,207 @@
+﻿@page "/products"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Globalization
+@inject CRUD.Data.AppDbContext Db
+@inject IWebHostEnvironment Env
+@rendermode InteractiveServer
+
+<h1>Products</h1>
+
+<!-- FORM: Add / Edit -->
+<div class="panel">
+    <h3>@(current.Id == 0 ? "Add product" : $"Edit: {current.Name}")</h3>
+
+    <div class="form-row">
+        <label>Name</label>
+        <input @bind="current.Name" placeholder="Product name" />
+    </div>
+
+    <div class="form-row">
+        <label>Price</label>
+        <input type="number" step="0.01" @bind="current.Price" />
+    </div>
+
+    <div class="form-row">
+        <label>Image</label>
+        <InputFile OnChange="OnImagePicked" accept="image/*" />
+        <div class="preview">
+            <img src="@(string.IsNullOrEmpty(current.ImageUrl) ? "/images/placeholder.png" : current.ImageUrl)"
+                 alt="preview" />
+        </div>
+    </div>
+
+    <div class="actions">
+        <button @onclick="SaveAsync">Save</button>
+        @if (current.Id != 0 || !string.IsNullOrWhiteSpace(current.Name) || !string.IsNullOrWhiteSpace(current.ImageUrl))
+        {
+            <button class="secondary" @onclick="CancelEdit">Cancel</button>
+        }
+    </div>
+</div>
+
+<!-- GRID: Amazon-like cards -->
+@if (products.Count == 0)
+{
+    <p>No products yet.</p>
+}
+else
+{
+    <div class="cards">
+        @foreach (var p in products)
+        {
+            <div class="card">
+                <img src="@(string.IsNullOrEmpty(p.ImageUrl) ? "/images/placeholder.png" : p.ImageUrl)"
+                     alt="@p.Name" />
+                <div class="title" title="@p.Name">@p.Name</div>
+                <div class="price">@p.Price.ToString("C", CultureInfo.CurrentCulture)</div>
+                <div class="card-actions">
+                    <button @onclick="() => Edit(p)">Edit</button>
+                    <button class="danger" @onclick="() => DeleteAsync(p.Id)">Delete</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<CRUD.Models.Product> products = new();
+    private CRUD.Models.Product current = new();
+
+    // Per gestire immagini quando si fa edit/replace
+    private string? _previousImageDiskPath;     // immagine già esistente prima dell'edit
+    private string? _pendingNewImageDiskPath;   // file appena caricato (se si annulla, lo cancelliamo)
+
+    protected override async Task OnInitializedAsync()
+      => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        products = await Db.Products.AsNoTracking()
+                                    .OrderBy(p => p.Name)
+                                    .ToListAsync();
+    }
+
+    private async Task OnImagePicked(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        // cartella wwwroot/images/products
+        var folder = Path.Combine(Env.WebRootPath, "images", "products");
+        Directory.CreateDirectory(folder);
+
+        var safeExt = Path.GetExtension(file.Name);
+        var fileName = $"{Guid.NewGuid()}{safeExt}";
+        var absPath = Path.Combine(folder, fileName);
+
+        // limita a 10MB
+        await using var read = file.OpenReadStream(10 * 1024 * 1024);
+        await using var write = File.Create(absPath);
+        await read.CopyToAsync(write);
+
+        // se stiamo sostituendo un'immagine durante l'edit, ricorda di cancellare la precedente al Save
+        _pendingNewImageDiskPath = absPath;
+        current.ImageUrl = $"/images/products/{fileName}";
+    }
+
+    private void Edit(CRUD.Models.Product p)
+    {
+        current = new CRUD.Models.Product { Id = p.Id, Name = p.Name, Price = p.Price, ImageUrl = p.ImageUrl };
+        _previousImageDiskPath = MapUrlToDiskPath(p.ImageUrl);
+        _pendingNewImageDiskPath = null; // verrà valorizzato se l'utente carica una nuova immagine
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(current.Name)) return;
+
+        if (current.Id == 0)
+        {
+            Db.Products.Add(current);
+        }
+        else
+        {
+            Db.Products.Update(current);
+
+            // se è stata caricata una nuova immagine, elimina il file precedente
+            if (!string.IsNullOrEmpty(_previousImageDiskPath) &&
+                !string.IsNullOrEmpty(_pendingNewImageDiskPath) &&
+                _previousImageDiskPath != _pendingNewImageDiskPath &&
+                File.Exists(_previousImageDiskPath))
+            {
+                TryDelete(_previousImageDiskPath);
+            }
+        }
+
+        await Db.SaveChangesAsync();
+        await LoadAsync();
+        ResetForm();
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        var entity = await Db.Products.FindAsync(id);
+        if (entity is null) return;
+
+        // elimina anche il file immagine se esiste
+        var toDelete = MapUrlToDiskPath(entity.ImageUrl);
+        if (!string.IsNullOrEmpty(toDelete)) TryDelete(toDelete);
+
+        Db.Products.Remove(entity);
+        await Db.SaveChangesAsync();
+
+        products.RemoveAll(p => p.Id == id);
+    }
+
+    private void CancelEdit()
+    {
+        // se abbiamo caricato un file nuovo ma non salviamo, rimuovilo
+        if (!string.IsNullOrEmpty(_pendingNewImageDiskPath) && File.Exists(_pendingNewImageDiskPath))
+            TryDelete(_pendingNewImageDiskPath);
+
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        current = new CRUD.Models.Product();
+        _previousImageDiskPath = null;
+        _pendingNewImageDiskPath = null;
+    }
+
+    private string? MapUrlToDiskPath(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        var relative = url.StartsWith("/") ? url[1..] : url;
+        return Path.Combine(Env.WebRootPath, relative.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    private static void TryDelete(string? path)
+    {
+        try { if (!string.IsNullOrEmpty(path) && File.Exists(path)) File.Delete(path); }
+        catch { /* log se vuoi */ }
+    }
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "editId")]
+    public int? EditId { get; set; }   // prende ?editId=... dalla URL
+
+
+
+    // si attiva anche se cambi solo la query string
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EditId is int id)
+        {
+            var p = await Db.Products.AsNoTracking()
+                                     .FirstOrDefaultAsync(x => x.Id == id);
+            if (p != null)
+            {
+                // pre-compila il form in modalità EDIT
+                current = new Product { Id = p.Id, Name = p.Name, Price = p.Price, ImageUrl = p.ImageUrl };
+            }
+        }
+    }
+
+}
+

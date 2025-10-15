@@ -1,0 +1,117 @@
+﻿/* Pannello form */
+.panel {
+    border: 1px solid #eaeaea;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 12px 0;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,.04);
+}
+
+/* Form rows */
+.form-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin: 8px 0;
+}
+
+    .form-row label {
+        width: 80px;
+        font-weight: 600;
+    }
+
+    .form-row input {
+        flex: 1;
+        min-width: 0;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+    }
+
+/* Anteprima immagine */
+.preview img {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #eee;
+    background: #f7f7f7;
+    margin-top: 8px;
+}
+
+/* Azioni form */
+.actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+    .actions .secondary {
+        background: #f3f4f6;
+    }
+
+/* Griglia card stile Amazon */
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.card {
+    border: 1px solid #eee;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,.06);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+    .card img {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #f7f7f7;
+    }
+
+.title {
+    font-weight: 600;
+    line-height: 1.2;
+    min-height: 2.4em; /* ~2 righe */
+}
+
+.price {
+    font-weight: 700;
+    margin-top: auto; /* spinge i bottoni in basso */
+}
+
+.card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Bottoni */
+button {
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    background: #ffd814; /* giallo "amazon-like" */
+    cursor: pointer;
+}
+
+    button:hover {
+        filter: brightness(.96);
+    }
+
+    button:focus-visible {
+        outline: 2px solid #111;
+        outline-offset: 2px;
+    }
+
+    button.danger {
+        background: #fee2e2;
+    }

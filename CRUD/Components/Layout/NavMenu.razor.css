@@ -4,6 +4,7 @@
     width: 3.5rem;
     height: 2.5rem;
     color: white;
+    background-color:black;
     position: absolute;
     top: 0.5rem;
     right: 1rem;
@@ -21,6 +22,7 @@
 }
 
 .navbar-brand {
+    font-weight: bold;
     font-size: 1.1rem;
 }
 
@@ -83,10 +85,14 @@
 
 .nav-scrollable {
     display: none;
+    background-color:rgb(16, 12, 12);
 }
 
 .navbar-toggler:checked ~ .nav-scrollable {
     display: block;
+}
+.navbar-dark {
+    background-color:rgb(70, 15, 57)
 }
 
 @media (min-width: 641px) {
@@ -97,7 +103,6 @@
     .nav-scrollable {
         /* Never collapse the sidebar for wide screens */
         display: block;
-
         /* Allow sidebar to scroll for tall menus */
         height: calc(100vh - 3.5rem);
         overflow-y: auto;
